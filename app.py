@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 from docxtpl import DocxTemplate
 from io import BytesIO
 
@@ -64,7 +65,7 @@ def generate_doc(df, template_path):
 
 # --- ИНТЕРФЕЙС ---
 st.set_page_config(page_title="Генератор Пробников", page_icon="📝")
-st.title("Генератор Пробников (v2.0)")
+st.title("Генератор Пробников")
 
 uploaded_excel = st.file_uploader("Загрузите Excel", type=['xlsx', 'xlsm'])
 
@@ -84,12 +85,13 @@ if uploaded_excel:
                 
                 doc_io = generate_doc(df, template_file)
                 
-                st.success("Готово! Подвопросы должны появиться.")
+                st.success(f"Готово! Файл: {file_name_with_date}")
                 st.download_button(
-                    label="Скачать .docx",
+                    label=f"Скачать {file_name_with_date}",
                     data=doc_io,
-                    file_name="Probnik_Final_v2.docx",
+                    file_name=file_name_with_date, # Вот сюда подставляем имя
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
             except Exception as e:
                 st.error(f"Ошибка: {e}")
+
