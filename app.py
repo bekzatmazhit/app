@@ -3,64 +3,55 @@ import pandas as pd
 from docxtpl import DocxTemplate
 from io import BytesIO
 
-# --- НАСТРОЙКИ КОЛОНОК (Теперь идеально под твой файл) ---
-COL_QUESTION = 1  # Вопрос (Колонка B)
-COL_A = 2         # Вариант A (Колонка C)
-COL_B = 3         # Вариант B (Колонка D)
-COL_C = 4         # Вариант C (Колонка E)
-COL_D = 5         # Вариант D (Колонка F)
+# --- НАСТРОЙКИ КОЛОНОК (ИСПРАВЛЕННЫЕ) ---
+COL_QUESTION = 1  # Вопрос
+COL_A = 2         # A
+COL_B = 3         # B
+COL_C = 4         # C
+COL_D = 5         # D
 
-# Для вопросов 36-40 (Множественный выбор), если они есть
-COL_E = 6         # Вариант E (Колонка G)
-COL_F = 7         # Вариант F (Колонка H)
-
-# Для контекстных вопросов (31-35), если они есть
-# Обычно они идут после основных вариантов. Если в твоем файле их нет в этих колонках,
-# скрипт просто оставит пустоту, ошибок не будет.
-COL_CTX_1 = 8     
-COL_CTX_2 = 9     
+# В твоем файле и Варианты E/F, и Подвопросы лежат в одних и тех же колонках (G и H)
+# Индексы (считаем с 0): A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7
+COL_E = 6         
+COL_F = 7         
+COL_CTX_1 = 6     # Первый подвопрос (тоже колонка G)
+COL_CTX_2 = 7     # Второй подвопрос (тоже колонка H)
 
 def generate_doc(df, template_path):
     doc = DocxTemplate(template_path)
     context = {}
 
-    # Проходим по строкам. 
-    # Так как мы делаем skiprows=1 при чтении, то df.iloc[0] - это уже первый вопрос.
-    # Нам нужно обработать ровно 40 вопросов (или сколько есть в файле).
-    
     total_rows = len(df)
     
     for i in range(1, 41): 
-        row_idx = i - 1  # 0-й индекс массива = 1-й вопрос теста
+        row_idx = i - 1
         
-        # Защита: если в Excel меньше 40 строк, не ломаемся, а выходим
         if row_idx >= total_rows:
             break
 
-        # Создаем ключи: q1, q1A, q1B...
         q_key = f"q{i}"
         
-        # Функция для безопасного получения данных (чтобы не было 'nan')
         def get_val(col_idx):
             try:
                 val = df.iloc[row_idx, col_idx]
-                return str(val) if pd.notna(val) else ""
+                return str(val).strip() if pd.notna(val) else ""
             except IndexError:
                 return ""
 
-        # Основное наполнение
+        # Основные поля
         context[q_key] = get_val(COL_QUESTION)
         context[f"{q_key}A"] = get_val(COL_A)
         context[f"{q_key}B"] = get_val(COL_B)
         context[f"{q_key}C"] = get_val(COL_C)
         context[f"{q_key}D"] = get_val(COL_D)
 
-        # Контекстные (31-35)
+        # Логика для 31-35 (Контекстные вопросы)
+        # Теперь берем данные из колонок 6 и 7
         if 31 <= i <= 35:
             context[f"{q_key}_first"] = get_val(COL_CTX_1)
             context[f"{q_key}_second"] = get_val(COL_CTX_2)
 
-        # Множественный выбор (36-40)
+        # Логика для 36-40 (Множественный выбор, варианты E и F)
         if 36 <= i <= 40:
             context[f"{q_key}E"] = get_val(COL_E)
             context[f"{q_key}F"] = get_val(COL_F)
@@ -72,38 +63,33 @@ def generate_doc(df, template_path):
     return bio
 
 # --- ИНТЕРФЕЙС ---
-st.set_page_config(page_title="Генератор Пробников Today", page_icon="🎓")
-st.title("Генератор Пробников (Excel -> Word)")
+st.set_page_config(page_title="Генератор Пробников", page_icon="📝")
+st.title("Генератор Пробников (v2.0)")
 
-# Загрузка Excel
-uploaded_excel = st.file_uploader("Загрузите файл Excel (заполненный!)", type=['xlsx', 'xlsm'])
+uploaded_excel = st.file_uploader("Загрузите Excel", type=['xlsx', 'xlsm'])
 
-# Проверка наличия шаблона
 try:
     template_file = "template.docx"
-    with open(template_file, "rb") as f:
-        pass
+    with open(template_file, "rb") as f: pass
 except FileNotFoundError:
-    st.error("⚠️ Не найден файл template.docx! Загрузи его в ту же папку.")
+    st.error("⚠️ Нет файла template.docx")
     st.stop()
 
 if uploaded_excel:
     if st.button("Сгенерировать"):
-        with st.spinner("Обработка..."):
+        with st.spinner("Работаем..."):
             try:
-                # Читаем Excel. 
-                # skiprows=1 -> пропускаем шапку (Номер, Вопрос...), начинаем сразу с данных
-                # header=None -> не используем имена колонок, работаем строго по номерам (0, 1, 2...)
+                # Читаем Excel (пропускаем 1-ю строку-шапку)
                 df = pd.read_excel(uploaded_excel, header=None, skiprows=1)
                 
                 doc_io = generate_doc(df, template_file)
                 
-                st.success("Файл готов!")
+                st.success("Готово! Подвопросы должны появиться.")
                 st.download_button(
                     label="Скачать .docx",
                     data=doc_io,
-                    file_name="Probnik_Final.docx",
+                    file_name="Probnik_Final_v2.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
             except Exception as e:
-                st.error(f"Произошла ошибка: {e}")
+                st.error(f"Ошибка: {e}")
